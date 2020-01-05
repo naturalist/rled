@@ -9,7 +9,7 @@ lazy_static! {
     .unwrap();
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum Status {
     Pending,
     Cleared,
@@ -45,14 +45,23 @@ impl<'c> Title<'c> {
     pub fn parse(line: &'c str) -> Option<Self> {
         // Strings, with turn into a regex needed to parse the title
         TITLE_RE.captures(line).map(|caps| {
-            let date: Option<NaiveDate> = caps.get(1).and_then(Self::parse_date);
-            let aux_date: Option<NaiveDate> = caps.get(2).and_then(Self::parse_date);
+            let date = caps.get(1).and_then(Self::parse_date);
+            let aux_date = caps.get(2).and_then(Self::parse_date);
+
             let status = caps.get(5).and_then(|s| match s.as_str() {
                 "*" => Some(Status::Cleared),
                 "!" => Some(Status::Pending),
                 _ => None,
             });
-            let code = caps.get(7).map(|s| s.as_str().parse::<i32>().unwrap());
+
+            let code = caps.get(7).map(|s| {
+                let mut ss = String::from(s.as_str());
+                if ss.starts_with('#') {
+                    ss.remove(0);
+                }
+                ss.parse::<i32>().unwrap()
+            });
+
             let payee = caps.get(8).map(|s| s.as_str());
 
             Title {
@@ -71,8 +80,39 @@ mod tests {
     use super::*;
 
     #[test]
-    fn parse_title() {
-        let t = Title::parse(&"2020/01/02 * Title");
-        assert_eq!(t.is_some(), true);
+    fn simple() {
+        let t = Title::parse(&"2020/01/02 Title").unwrap();
+        assert_eq!(t.status, None);
+        assert_eq!(t.date, NaiveDate::from_ymd(2020, 01, 02));
+        assert_eq!(t.payee, "Title");
+    }
+
+    #[test]
+    fn cleared() {
+        let t = Title::parse(&"2020/01/02 * Title").unwrap();
+        assert_eq!(t.status, Some(Status::Cleared));
+        assert_eq!(t.date, NaiveDate::from_ymd(2020, 01, 02));
+    }
+
+    #[test]
+    fn pending() {
+        let t = Title::parse(&"2020/01/02 ! Title").unwrap();
+        assert_eq!(t.status, Some(Status::Pending));
+        assert_eq!(t.date, NaiveDate::from_ymd(2020, 01, 02));
+    }
+
+    #[test]
+    fn aux_date() {
+        let t = Title::parse(&"2020/01/02=2020/01/05 * Title").unwrap();
+        assert_eq!(t.date, NaiveDate::from_ymd(2020, 01, 02));
+        assert_eq!(t.aux_date, Some(NaiveDate::from_ymd(2020, 01, 05)));
+    }
+
+    #[test]
+    fn code() {
+        let t = Title::parse(&"2020/01/02=2020/01/05 * (#123) Title").unwrap();
+        assert_eq!(t.code, Some(123));
+        let t = Title::parse(&"2020/01/02=2020/01/05 * (123) Title").unwrap();
+        assert_eq!(t.code, Some(123));
     }
 }
