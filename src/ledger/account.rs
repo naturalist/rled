@@ -2,40 +2,27 @@ use lazy_static::lazy_static;
 use regex::Regex;
 
 lazy_static! {
-    static ref ACCOUNT_RE: Regex = Regex::new(r"\s+()").unwrap();
+    static ref ACCOUNT_RE: Regex = Regex::new(r"\s+(([^;]+)(\s{2,}|\t)([^;]+))?(;.+)?").unwrap();
 }
 
 #[derive(Debug)]
-pub enum Account<'a> {
-    Full {
-        name: &'a str,
-        amount: &'a str,
-        comment: &'a str,
-    },
-    Comment {
-        comment: &'a str,
-    },
+pub struct Account<'a> {
+    name: Option<&'a str>,
+    amount: Option<&'a str>,
+    comment: Option<&'a str>,
 }
 
 impl<'c> Account<'c> {
-    pub fn parse(text: &'c str) -> Result<Self, &str> {
-        if text.starts_with(';') {
-            Ok(Account::Comment { comment: text })
-        } else {
-            // Split at ; to separate comments
-            let parts: Vec<&str> = text.split(';').map(|x| x.trim()).collect();
-            let comment = parts.get(1).unwrap_or(&"");
-            let re = Regex::new(r"(\s{2,}|\t)").unwrap();
-            let parts: Vec<&str> = re.splitn(parts[0], 2).map(|x| x.trim()).collect();
-            if parts.len() == 2 {
-                Ok(Account::Full {
-                    name: parts[0],
-                    amount: parts[1],
-                    comment: comment,
-                })
-            } else {
-                Err(&"Invalid account line")
+    pub fn parse(text: &'c str) -> Option<Self> {
+        ACCOUNT_RE.captures(text).map(|caps| {
+            let name = caps.get(2).map(|x| x.as_str().trim());
+            let amount = caps.get(4).map(|x| x.as_str().trim());
+            let comment = caps.get(5).map(|x| x.as_str().trim());
+            Account {
+                name: name,
+                amount: amount,
+                comment: comment,
             }
-        }
+        })
     }
 }

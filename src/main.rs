@@ -29,8 +29,9 @@ fn parse<'a>(source: impl BufRead) -> Result<Vec<Transaction<'a>>, ErrorMsg<'a>>
             }
             while let Some(Ok(line)) = lines_iter.next() {
                 if line.starts_with(' ') {
-                    let account = Account::parse(line.trim());
-                    if account.is_ok() {
+                    println!("{}", &line);
+                    let account = Account::parse(&line);
+                    if account.is_some() {
                         println!("{:?}", account);
                     }
                     // parse accounts
