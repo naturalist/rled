@@ -19,23 +19,30 @@ struct ErrorMsg<'a> {
 fn parse<'a>(source: impl BufRead) -> Result<Vec<Transaction<'a>>, ErrorMsg<'a>> {
     let mut num = 0i32;
     let mut lines_iter = source.lines();
+    let mut txs: Vec<Transaction> = vec![];
 
     while let Some(line) = lines_iter.next() {
         num += 1;
         if let Ok(line) = line {
-            let title = Title::parse(&line);
-            if title.is_some() {
-                println!("{}", &line);
-            }
-            while let Some(Ok(line)) = lines_iter.next() {
-                if line.starts_with(' ') {
-                    println!("{}", &line);
-                    let account = Account::parse(&line);
-                    if account.is_some() {
-                        println!("{:?}", account);
+            if let Some(title) = Title::parse(&line) {
+                let mut accs: Vec<Account> = vec![];
+                while let Some(Ok(l2)) = lines_iter.next() {
+                    num += 1;
+                    if l2.starts_with(' ') {
+                        if let Some(account) = Account::parse(l2.as_ref()) {
+                            accs.push(account);
+                        } else {
+                            return Err(ErrorMsg {
+                                line_no: num,
+                                message: &"Account format error",
+                            });
+                        }
                     }
-                    // parse accounts
                 }
+                txs.push(Transaction {
+                    title: title,
+                    accounts: accs,
+                });
             }
         } else {
             return Err(ErrorMsg {
@@ -44,23 +51,6 @@ fn parse<'a>(source: impl BufRead) -> Result<Vec<Transaction<'a>>, ErrorMsg<'a>>
             });
         }
     }
-
-    /*
-    for line in source.lines() {
-        num += 1;
-        if let Ok(line) = line {
-            let title = Title::parse(&line);
-            if title.is_some() {
-                println!("{}", &line);
-            }
-        } else {
-            return Err(ErrorMsg {
-                line_no: num,
-                message: &"Input error",
-            });
-        }
-    }
-    */
 
     Err(ErrorMsg {
         line_no: 1,
