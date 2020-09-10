@@ -6,9 +6,9 @@ use ledger::account::Account;
 use ledger::title::Title;
 
 #[derive(Debug)]
-struct Transaction<'a> {
-    title: Title<'a>,
-    accounts: Vec<Account<'a>>,
+struct Transaction {
+    title: Title,
+    accounts: Vec<Account>,
 }
 
 struct ErrorMsg<'a> {
@@ -16,7 +16,7 @@ struct ErrorMsg<'a> {
     message: &'a str,
 }
 
-fn parse<'a>(source: impl BufRead) -> Result<Vec<Transaction<'a>>, ErrorMsg<'a>> {
+fn parse<'a>(source: impl BufRead) -> Result<Vec<Transaction>, ErrorMsg<'a>> {
     let mut num = 0i32;
     let mut lines_iter = source.lines();
     let mut txs: Vec<Transaction> = vec![];
@@ -26,10 +26,10 @@ fn parse<'a>(source: impl BufRead) -> Result<Vec<Transaction<'a>>, ErrorMsg<'a>>
         if let Ok(line) = line {
             if let Some(title) = Title::parse(&line) {
                 let mut accs: Vec<Account> = vec![];
-                while let Some(Ok(l2)) = lines_iter.next() {
+                while let Some(Ok(line)) = lines_iter.next() {
                     num += 1;
-                    if l2.starts_with(' ') {
-                        if let Some(account) = Account::parse(l2.as_ref()) {
+                    if line.starts_with(' ') {
+                        if let Some(account) = Account::parse(&line) {
                             accs.push(account);
                         } else {
                             return Err(ErrorMsg {

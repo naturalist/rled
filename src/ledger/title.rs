@@ -16,22 +16,18 @@ pub enum Status {
 }
 
 #[derive(Debug)]
-pub struct Title<'a> {
+pub struct Title {
     date: NaiveDate,
     aux_date: Option<NaiveDate>,
     status: Option<Status>,
-    code: Option<i32>,
-    payee: &'a str,
+    code: Option<String>,
+    payee: String,
 }
 
-impl<'c> Title<'c> {
+impl Title {
     fn parse_date<'a>(st: impl Into<&'a str>) -> Option<NaiveDate> {
-        let mut s = String::from(st.into());
-
         // Aux date may have a = in front of it
-        if s.starts_with('=') {
-            s.remove(0);
-        }
+        let s = st.into().trim_start_matches('=');
 
         let parts: Vec<i32> = s.split('/').map(|x| x.parse::<i32>().unwrap()).collect();
         if parts.len() != 3 {
@@ -42,26 +38,17 @@ impl<'c> Title<'c> {
     }
 
     // Parses the title
-    pub fn parse(line: &'c str) -> Option<Self> {
+    pub fn parse(line: &str) -> Option<Self> {
         // Strings, with turn into a regex needed to parse the title
         TITLE_RE.captures(line).map(|caps| {
             let date = caps.get(1).and_then(Self::parse_date);
             let aux_date = caps.get(2).and_then(Self::parse_date);
-
             let status = caps.get(5).and_then(|s| match s.as_str() {
                 "*" => Some(Status::Cleared),
                 "!" => Some(Status::Pending),
                 _ => None,
             });
-
-            let code = caps.get(7).map(|s| {
-                let mut ss = String::from(s.as_str());
-                if ss.starts_with('#') {
-                    ss.remove(0);
-                }
-                ss.parse::<i32>().unwrap()
-            });
-
+            let code = caps.get(7).map(|s| String::from(s.as_str()));
             let payee = caps.get(8).map(|s| s.as_str());
 
             Title {
@@ -69,7 +56,7 @@ impl<'c> Title<'c> {
                 aux_date: aux_date,
                 status: status,
                 code: code,
-                payee: payee.unwrap(),
+                payee: String::from(payee.unwrap()),
             }
         })
     }
@@ -111,8 +98,8 @@ mod tests {
     #[test]
     fn code() {
         let t = Title::parse(&"2020/01/02=2020/01/05 * (#123) Title").unwrap();
-        assert_eq!(t.code, Some(123));
+        assert_eq!(t.code, Some("#123".to_owned()));
         let t = Title::parse(&"2020/01/02=2020/01/05 * (123) Title").unwrap();
-        assert_eq!(t.code, Some(123));
+        assert_eq!(t.code, Some("123".to_owned()));
     }
 }
